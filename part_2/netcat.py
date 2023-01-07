@@ -6,8 +6,7 @@ import sys
 import textwrap
 import threading
 
-
-
+# test!
 def execute(cmd: str) -> str:
     """
     The function executes a command and returns an output
