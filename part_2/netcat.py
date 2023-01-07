@@ -13,12 +13,15 @@ def execute(cmd: str) -> str:
     :param cmd: string with a CLI command
     :return: string with an output of the command
     """
-    cmd = cmd.strip()
-    if not cmd:
+    cmd = cmd.strip() # replace spaces
+    if not cmd: 
         return
     # run command with args and return an output
+    # if shell=False - commands and args are being received together 
+    # shlex is modeule that can work with command shell syntaxis
+    # subprocess.check_output execute  command and returns a result
     output = subprocess.check_output(shlex.split(cmd),
-                                     stderr=subprocess.STDOUT, shell=True)
+                                     stderr=subprocess.STDOUT, shell=False)
     return output.decode()  # output as a string, not bytes
 
 
@@ -26,9 +29,19 @@ class NetCat:
     def __init__(self, args, buffer=None):
         self.args = args
         self.buffer = buffer
+        # AF_INET means standart address IPv4
+        # SOC_STREAM means the client will work on TCP
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # adjust extra settings of sockets
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
+    def run(self):
+        """The method delegates the execution to 2 other methods"""
+        if self.args.listen:
+            self.listen()
+        else:
+            self.send()
+            
     def send(self):
         self.socket.connect((self.args.target, self.args.port))  # connect
         if self.buffer:  # if there is a buffer send it
@@ -55,31 +68,28 @@ class NetCat:
 
     def listen(self):
         self.socket.bind((self.args.target, self.args.port))
-        self.socket.listen(5)
+        self.socket.listen(5) # no more that 5 postponed connections
         while True:
             client_socket, addr = self.socket.accept()
             print(f"[*] Accepted connection from {addr[0]}:{addr[1]}")
+            # threading is module for simultanious execution 
+            # of several examples of processes
             client_thread = threading.Thread(
                 target=self.handle, args=(client_socket,)
             )
             client_thread.start()
 
-    def run(self):
-        if self.args.listen:
-            self.listen()
-        else:
-            self.send()
 
     def handle(self, client_socket):
         """
-        The method executes a command, downloads a file or launches CLI
+        The method executes a command, uploads a file or launches CLI
         :param client_socket:
         :return:
         """
         if self.args.execute:  # if need to execute a command
-            output = execute(self.args.execute)
+            output = execute(self.args.execute) # outer function
             client_socket.send(output.encode())
-        elif self.args.upload:  # if need to download a file
+        elif self.args.upload:  # if need to upload a file
             file_buffer = b''
             while True:  # collect data
                 data = client_socket.recv(4096)
@@ -97,7 +107,7 @@ class NetCat:
                 try:
                     client_socket.send(b'PBH: #> ')
                     while '\n' not in cmd_buffer.decode():
-                        cmd_buffer += client_socket.recv(32)
+                        cmd_buffer += client_socket.recv(64) #32 for bad connection
                     response = execute(cmd_buffer.decode())
                     if response:
                         client_socket.send(response.encode())
@@ -114,14 +124,18 @@ if __name__ == '__main__':
         formatter_class=argparse.RawDescriptionHelpFormatter,
         # description of --help
         epilog=textwrap.dedent("""Example:
-        netcat.py -t 192.168.1.108 -p 5555 -l -c # command line
+        # command line
+        netcat.py -t 192.168.1.108 -p 5555 -l -c 
+        # create new or overwrite to existing file
         netcat.py -t 192.168.1.108 -p 5555 -l -u=mytest.txt
-        #load in file
-        netcat.py -t 192.168.1.108 -p 5555 -l -e=\"cat /etc/passwd\"
-        # execute the command
-        echo 'ABC' | ./netcat.py -t 192.168.1.108 -p 135
         #send the text to the port of server 135
+        #load in file (changes save after finishing the connection)
+        # maybe it needs to change rights for the file: chmod ugo+rwx filename.txt
         netcat.py -t 192.168.1.108 -p 5555 # connect with the server
+        echo 'ABC' | ./netcat.py -t 192.168.1.108 -p 135
+        echo "ABC" | ./netcat.py -t 192.168.1.108 -p 135
+        # execute the command
+        netcat.py -t 192.168.1.108 -p 5555 -l -e=\"cat /etc/passwd\"
         ***
         To know IP addr on Linux: ifconfig | grep "inet" ; nslookup localhost 
         To know IP addr on Windows: ipconfig (see IPv4)
