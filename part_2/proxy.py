@@ -2,6 +2,7 @@ import sys
 import socket
 import threading
 
+
 # chr() Преобразует число в символ Юникода, обратная операция ord().
 # HEX_FILTER - способ транслирования. Если символ непечатный , выведется точка.
 # длина repr(chr(i)) для печатного символа всегда 3
@@ -15,7 +16,8 @@ print(tbl)
 print(string.translate(tbl))
 >>> 'тAблиZA PреOбрAзOVAния симVOлOV'
 """
-
+# if symbol's length is equal 3 and the symbol is printable then itself will be used
+# otherwise '.' will be used
 HEX_FILTER = ''.join(
     [(len(repr(chr(i))) == 3) and chr(i) or '.' for i in range(256)]
 )
@@ -31,13 +33,16 @@ def hexdump(src: bytes, length: int = 16, show: bool = True) -> list:
     >>>'0010 64 20 70 72 6F 78 69 65 73 20 72 6F 6C 6C 0A     d proxies roll.'
     """
     if isinstance(src, bytes):
+        # decode a sequence of bytes
         src = src.decode()
-    results = list()
+    results = list()  # for saving of strings (view func's doc)
     for i in range(0, len(src), length):
         word = str(src[i:i+length])  # word is a part of byte sequence
-        # replace raw characters with processed ones
+        # replacing raw characters with processed ones
         printable = word.translate(HEX_FILTER)
+        # converting every symbol in hexadecimal state
         hexa = ' '.join([f'{ord(c):02X}' for c in word])
+        # ?
         hexwidth = length * 3
         results.append(f'{i:04x} {hexa:<{hexwidth}} {printable}')
     if show:
@@ -51,8 +56,9 @@ def receive_from(connection, timeout: int = 10) -> bytes:
     """
     Function receive_from gets either local or remote data
     connection - socket object
-    timeout: int, tima of waiting an answer
+    timeout: int, time of waiting an answer
     """
+    # empty byte string for collecting data from socket
     buffer = b""
     connection.settimeout(timeout)
     try:
@@ -81,11 +87,12 @@ def response_handler(buffer: bytes) -> bytes:
 def proxy_handler(client_socket, remote_host: str,
                   remote_port: int, receive_first: bool,
                   timeout: int = 10) -> None:
-    """Function proxy_handler"""
+    """Function proxy_handler manages sending data from and to
+    local and remote servers"""
     remote_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     remote_socket.connect((remote_host, remote_port))
 
-    # Make sure that don't need to init a connection with remote part
+    # Make sure that you don't need to init a connection with remote part
     # and ask a data before to go to the main cycle
     if receive_first:
         remote_buffer = receive_from(remote_socket, timeout=timeout)
@@ -126,7 +133,7 @@ def proxy_handler(client_socket, remote_host: str,
             time_left -= 1
             # if there is not data to send
             if time_left > 0:
-                print(f"Time left: {time_left}. Type new command, please.")
+                print(f"Attempts left: {time_left}. Type new command, please.")
                 continue
             else:
                 client_socket.close()
@@ -138,7 +145,10 @@ def proxy_handler(client_socket, remote_host: str,
 def server_loop(local_host: str, local_port: int,
                 remote_host: str, remote_port: int,
                 receive_first: bool, timeout: int = 10) -> None:
-    """Function server_loop"""
+    """Function server_loop is for
+    setting and management of connection"""
+    # AF_INET means standard address IPv4
+    # SOC_STREAM means the client will work on TCP
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         server.bind((local_host, local_port))

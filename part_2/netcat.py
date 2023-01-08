@@ -29,7 +29,7 @@ class NetCat:
     def __init__(self, args, buffer=None):
         self.args = args
         self.buffer = buffer
-        # AF_INET means standart address IPv4
+        # AF_INET means standard address IPv4
         # SOC_STREAM means the client will work on TCP
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # adjust extra settings of sockets
